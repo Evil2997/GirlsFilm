@@ -1,13 +1,17 @@
 [project]
-name = "girlsfilm"
-version = "0.1.0"
+name = "GirlsFilm"
+
+authors = [
+    { name = "Evil2997", email = "dima.molchanow2012@gmail.com" }
+]
+
+version = "1.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
+
 dependencies = [
     "anthropic>=0.100.0",
     "browser-cookie3>=0.20.1",
-    "click>=8.3.3",
-    "dotenv>=0.9.9",
     "instaloader>=4.15.1",
     "pydantic-settings>=2.14.0",
     "requests>=2.33.1",
