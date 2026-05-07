@@ -1,11 +1,11 @@
 import instaloader
-from typing import Optional
 
 from app.config import settings, INSTAGRAM_POSTS_LIMIT, FATAL_STATUS_CODES
+from app.models import InstagramProfile
 from app.logger import logger
 
 
-def get_profile_data(username: str) -> Optional[dict]:
+def get_profile_data(username: str) -> InstagramProfile | None:
     loader = instaloader.Instaloader(
         download_pictures=False,
         download_videos=False,
@@ -30,27 +30,27 @@ def get_profile_data(username: str) -> Optional[dict]:
             logger.warning(f"Profile @{username} is private")
             return None
 
-        data: dict = {
-            "username": profile.username,
-            "full_name": profile.full_name,
-            "biography": profile.biography,
-            "followers": profile.followers,
-            "following": profile.followees,
-            "post_count": profile.mediacount,
-            "hashtags": [],
-            "captions": [],
-        }
+        hashtags: list[str] = []
+        captions: list[str] = []
 
         for i, post in enumerate(profile.get_posts()):
             if i >= INSTAGRAM_POSTS_LIMIT:
                 break
             if post.caption_hashtags:
-                data["hashtags"].extend(post.caption_hashtags)
+                hashtags.extend(post.caption_hashtags)
             if post.caption:
-                data["captions"].append(post.caption[:100])
+                captions.append(post.caption[:100])
 
-        data["hashtags"] = list(set(data["hashtags"]))
-        return data
+        return InstagramProfile(
+            username=profile.username,
+            full_name=profile.full_name or "",
+            biography=profile.biography or "",
+            followers=profile.followers,
+            following=profile.followees,
+            post_count=profile.mediacount,
+            hashtags=list(set(hashtags)),
+            captions=captions,
+        )
 
     except instaloader.exceptions.ProfileNotExistsException:
         logger.error(f"Profile @{username} not found")

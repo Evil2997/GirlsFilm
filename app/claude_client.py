@@ -3,6 +3,7 @@ import anthropic
 
 from app.config import settings, CLAUDE_MODEL, CLAUDE_MAX_TOKENS
 from app.prompts import build_recommendation_prompt
+from app.models import InstagramProfile, Recommendation
 from app.cache import (
     load_llm_cache,
     save_llm_cache,
@@ -14,9 +15,13 @@ from app.logger import logger
 _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def analyze_profile(username: str, profile_data: dict, use_cache: bool = True) -> dict:
-    prompt = build_recommendation_prompt(profile_data)
-    profile_hash = get_profile_hash(profile_data)
+def analyze_profile(
+    username: str,
+    profile: InstagramProfile,
+    use_cache: bool = True,
+) -> Recommendation:
+    prompt = build_recommendation_prompt(profile)
+    profile_hash = get_profile_hash(profile)
     prompt_hash = get_prompt_hash(prompt)
 
     if use_cache:
@@ -34,9 +39,10 @@ def analyze_profile(username: str, profile_data: dict, use_cache: bool = True) -
     response_text = message.content[0].text
     start = response_text.find("{")
     end = response_text.rfind("}") + 1
-    result = json.loads(response_text[start:end])
+    data = json.loads(response_text[start:end])
+    recommendation = Recommendation.model_validate(data)
 
     if use_cache:
-        save_llm_cache(username, profile_hash, prompt_hash, result)
+        save_llm_cache(username, profile_hash, prompt_hash, recommendation)
 
-    return result
+    return recommendation

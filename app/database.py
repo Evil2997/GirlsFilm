@@ -1,13 +1,18 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.config import DB_PATH
+from app.models import Recommendation, HistoryRecord
 
 
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def init_db() -> None:
@@ -29,7 +34,7 @@ def init_db() -> None:
 
 def save_recommendation(
     username: str,
-    recommendation: dict,
+    recommendation: Recommendation,
     providers: list[str],
 ) -> None:
     with _connect() as conn:
@@ -41,21 +46,21 @@ def save_recommendation(
             """,
             (
                 username,
-                recommendation.get("series_title", ""),
-                recommendation.get("series_title_ru", ""),
-                recommendation.get("genre", ""),
-                recommendation.get("reason", ""),
+                recommendation.series_title,
+                recommendation.series_title_ru,
+                recommendation.genre,
+                recommendation.reason,
                 ", ".join(providers),
-                datetime.utcnow().isoformat(),
+                _now().strftime("%Y-%m-%d %H:%M:%S UTC"),
             ),
         )
         conn.commit()
 
 
-def get_history(username: str) -> list[dict]:
+def get_history(username: str) -> list[HistoryRecord]:
     with _connect() as conn:
         rows = conn.execute(
             "SELECT * FROM recommendations WHERE username = ? ORDER BY created_at DESC",
             (username,),
         ).fetchall()
-    return [dict(row) for row in rows]
+    return [HistoryRecord.model_validate(dict(row)) for row in rows]

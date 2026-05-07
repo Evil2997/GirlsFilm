@@ -1,6 +1,6 @@
-import json
-import time
 import hashlib
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.config import (
@@ -9,6 +9,16 @@ from app.config import (
     PROFILE_CACHE_TTL,
     LLM_CACHE_TTL,
 )
+from app.models import InstagramProfile, Recommendation, ProfileCache, LlmCache
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _is_expired(cached_at: datetime, ttl: int) -> bool:
+    age = (_now() - cached_at.replace(tzinfo=timezone.utc)).total_seconds()
+    return age > ttl
 
 
 def _load_json(path: Path) -> dict | None:
@@ -18,17 +28,13 @@ def _load_json(path: Path) -> dict | None:
         return json.load(f)
 
 
-def _save_json(path: Path, data: dict) -> None:
+def _save_json(path: Path, data: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write(data)
 
 
-def _is_expired(timestamp: float, ttl: int) -> bool:
-    return (time.time() - float(timestamp)) > ttl
-
-
-def get_profile_hash(profile_data: dict) -> str:
-    payload = json.dumps(profile_data, sort_keys=True, ensure_ascii=False)
+def get_profile_hash(profile: InstagramProfile) -> str:
+    payload = profile.model_dump_json(exclude_none=True)
     return hashlib.md5(payload.encode()).hexdigest()
 
 
@@ -36,45 +42,53 @@ def get_prompt_hash(prompt: str) -> str:
     return hashlib.md5(prompt.encode()).hexdigest()
 
 
-def load_profile_cache(username: str) -> dict | None:
+def load_profile_cache(username: str) -> InstagramProfile | None:
     path = PROFILE_CACHE_DIR / f"{username}.json"
-    data = _load_json(path)
-    if not data:
+    raw = _load_json(path)
+    if not raw:
         return None
-    if _is_expired(data["cached_at"], PROFILE_CACHE_TTL):
+    entry = ProfileCache.model_validate(raw)
+    if _is_expired(entry.cached_at, PROFILE_CACHE_TTL):
         path.unlink(missing_ok=True)
         return None
-    return data["profile_data"]
+    return entry.profile_data
 
 
-def save_profile_cache(username: str, profile_data: dict) -> None:
+def save_profile_cache(username: str, profile: InstagramProfile) -> None:
     path = PROFILE_CACHE_DIR / f"{username}.json"
-    _save_json(path, {"cached_at": time.time(), "profile_data": profile_data})
+    entry = ProfileCache(cached_at=_now(), profile_data=profile)
+    _save_json(path, entry.model_dump_json(indent=2))
 
 
-def load_llm_cache(username: str, profile_hash: str, prompt_hash: str) -> dict | None:
+def load_llm_cache(
+        username: str,
+        profile_hash: str,
+        prompt_hash: str,
+) -> Recommendation | None:
     path = LLM_CACHE_DIR / f"{username}.json"
-    data = _load_json(path)
-    if not data:
+    raw = _load_json(path)
+    if not raw:
         return None
-    if _is_expired(data["cached_at"], LLM_CACHE_TTL):
+    entry = LlmCache.model_validate(raw)
+    if _is_expired(entry.cached_at, LLM_CACHE_TTL):
         path.unlink(missing_ok=True)
         return None
-    if data["profile_hash"] != profile_hash or data["prompt_hash"] != prompt_hash:
+    if entry.profile_hash != profile_hash or entry.prompt_hash != prompt_hash:
         return None
-    return data["response"]
+    return entry.response
 
 
 def save_llm_cache(
-    username: str,
-    profile_hash: str,
-    prompt_hash: str,
-    response: dict,
+        username: str,
+        profile_hash: str,
+        prompt_hash: str,
+        response: Recommendation,
 ) -> None:
     path = LLM_CACHE_DIR / f"{username}.json"
-    _save_json(path, {
-        "cached_at": time.time(),
-        "profile_hash": profile_hash,
-        "prompt_hash": prompt_hash,
-        "response": response,
-    })
+    entry = LlmCache(
+        cached_at=_now(),
+        profile_hash=profile_hash,
+        prompt_hash=prompt_hash,
+        response=response,
+    )
+    _save_json(path, entry.model_dump_json(indent=2))

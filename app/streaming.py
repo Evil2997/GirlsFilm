@@ -10,21 +10,20 @@ from app.config import (
     PREFERRED_REGIONS,
 )
 from app.logger import logger
+from app.models import StreamingProvider, StreamingResult
 
 
-def find_on_streaming(title: str, verbose: bool = False) -> dict:
-    result = {
-        "found": False,
-        "providers": [],
-        "tmdb_url": None,
-        "matched_title": None,
-        "media_type": None,
-    }
+def find_on_streaming(title: str, verbose: bool = False) -> StreamingResult:
+    result = StreamingResult()
 
     try:
         search_resp = requests.get(
             TMDB_SEARCH_URL,
-            params={"api_key": settings.tmdb_api_key_2, "query": title, "language": "en-US"},
+            params={
+                "api_key": settings.tmdb_api_key_2,
+                "query": title,
+                "language": "en-US",
+            },
             timeout=10,
         )
 
@@ -44,9 +43,11 @@ def find_on_streaming(title: str, verbose: bool = False) -> dict:
         media_type = selected["media_type"]
         matched_title = selected.get("name") or selected.get("title")
 
-        result["matched_title"] = matched_title
-        result["media_type"] = media_type
-        result["tmdb_url"] = TMDB_ITEM_URL.format(media_type=media_type, media_id=media_id)
+        result.matched_title = matched_title
+        result.media_type = media_type
+        result.tmdb_url = TMDB_ITEM_URL.format(
+            media_type=media_type, media_id=media_id
+        )
 
         if verbose:
             logger.debug(f"TMDB match: {matched_title} ({media_type} id={media_id})")
@@ -67,16 +68,22 @@ def find_on_streaming(title: str, verbose: bool = False) -> dict:
             return result
 
         flatrate = regions[region].get("flatrate", [])
-        available = {p["provider_name"] for p in flatrate if p["provider_name"] in PROVIDER_MAP}
+        available = {
+            p["provider_name"]
+            for p in flatrate
+            if p["provider_name"] in PROVIDER_MAP
+        }
 
         if verbose:
             logger.debug(f"Available providers in {region}: {available}")
 
         for name in PROVIDER_PRIORITY:
             if name in available:
-                result["providers"].append({"name": name, "url": PROVIDER_MAP[name]})
+                result.providers.append(
+                    StreamingProvider(name=name, url=PROVIDER_MAP[name])
+                )
 
-        result["found"] = bool(result["providers"])
+        result.found = bool(result.providers)
         return result
 
     except requests.RequestException as e:

@@ -1,6 +1,6 @@
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR: Path = Path(__file__).resolve().parents[1]
 CACHE_DIR: Path = ROOT_DIR / "cache"
@@ -11,11 +11,12 @@ DB_PATH: Path = ROOT_DIR / "history.db"
 PROFILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 LLM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-PROFILE_CACHE_TTL: int = 3600 * 24        # 1 day
-LLM_CACHE_TTL: int = 3600 * 24 * 7        # 7 days
+PROFILE_CACHE_TTL: int = 3600 * 24  # 1 day
+LLM_CACHE_TTL: int = 3600 * 24 * 7  # 7 days
 INSTAGRAM_POSTS_LIMIT: int = 12
 CLAUDE_MODEL: str = "claude-opus-4-5"
 CLAUDE_MAX_TOKENS: int = 1024
+FATAL_STATUS_CODES: list[int] = [400, 401, 403, 404, 429]
 
 PROVIDER_MAP: dict[str, str] = {
     "Netflix": "https://www.netflix.com",
@@ -28,7 +29,6 @@ TMDB_PROVIDERS_URL: str = "https://api.themoviedb.org/3/{media_type}/{media_id}/
 TMDB_ITEM_URL: str = "https://www.themoviedb.org/{media_type}/{media_id}"
 PREFERRED_REGIONS: list[str] = ["DE", "US", "GB"]
 
-FATAL_STATUS_CODES = [400, 401, 403, 404, 429]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

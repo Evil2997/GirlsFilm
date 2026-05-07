@@ -1,14 +1,17 @@
-def build_recommendation_prompt(profile_data: dict) -> str:
-    hashtags = ", ".join(profile_data.get("hashtags", [])[:20])
-    captions = " | ".join(profile_data.get("captions", [])[:5])
+from app.models import InstagramProfile
+
+
+def build_recommendation_prompt(profile: InstagramProfile) -> str:
+    hashtags = ", ".join(profile.hashtags[:20])
+    captions = " | ".join(profile.captions[:5])
 
     return f"""You are an assistant that selects the perfect series or film for a date night.
 
 Instagram profile data:
-- Name: {profile_data.get("full_name", "Unknown")}
-- Bio: {profile_data.get("biography", "No bio")}
-- Post count: {profile_data.get("post_count", 0)}
-- Followers: {profile_data.get("followers", 0)}
+- Name: {profile.full_name or "Unknown"}
+- Bio: {profile.biography or "No bio"}
+- Post count: {profile.post_count}
+- Followers: {profile.followers}
 - Hashtags from posts: {hashtags}
 - Post captions: {captions}
 
