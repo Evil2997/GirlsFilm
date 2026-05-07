@@ -1,260 +1,199 @@
 # 💘 Date Night Assistant
 
-AI CLI-приложение, которое:
+An AI-powered CLI tool that:
 
-1. Сканирует Instagram профиль
-2. Анализирует интересы через Claude API
-3. Рекомендует сериал или фильм для свидания
-4. Проверяет доступность на Netflix / HBO Max / Prime Video через TMDB API
-
----
-
-# 🚀 Возможности
-
-- Instagram parsing через Instaloader
-- Claude Opus 4.5 integration
-- TMDB streaming provider search
-- CLI интерфейс через Click
-- Кэширование профилей и LLM response
-- Verbose debugging mode
-- Session-based Instagram authentication
+1. Scans a public Instagram profile
+2. Analyses interests using the Claude API
+3. Recommends a series or film for a date night
+4. Checks availability on Netflix / HBO Max / Prime Video via the TMDB API
 
 ---
 
-# 🏗 Архитектура
+## 🚀 Features
+
+- Instagram parsing via Instaloader (Chrome / Firefox session)
+- Claude Opus 4.5 — interest analysis and recommendation generation
+- TMDB API — streaming provider lookup by region
+- Direct search links to Netflix / HBO Max / Prime Video
+- File-based cache for profiles (24h TTL) and LLM responses (7-day TTL)
+- Recommendation history stored in SQLite
+- CLI with verbose mode and `--no-cache` flag
+
+---
+
+## 🏗 Architecture
 
 ```text
-CLI (Click)
+CLI (argparse)
     ↓
-instagram_parser.py
+session.py       — Instagram auth via Chrome/Firefox cookies
     ↓
-Claude API (Anthropic)
+instagram.py     — profile scraping via Instaloader
     ↓
-streaming_search.py (TMDB API)
+claude_client.py — interest analysis, series recommendation
     ↓
-Console output
-````
+streaming.py     — provider lookup via TMDB API
+    ↓
+Console output + SQLite history
+```
 
 ---
 
-# 📦 Структура проекта
+## 📦 Project Structure
 
 ```text
 GirlsFilm/
 ├── main.py
-├── instagram_parser.py
-├── streaming_search.py
-├── cache_utils.py
-├── create_session.py
+├── app/
+│   ├── cli.py
+│   ├── config.py
+│   ├── models.py
+│   ├── logger.py
+│   ├── session.py
+│   ├── instagram.py
+│   ├── claude_client.py
+│   ├── prompts.py
+│   ├── streaming.py
+│   ├── cache.py
+│   └── database.py
 ├── cache/
 │   ├── profiles/
 │   └── llm/
+├── history.db
+├── .env
 ├── .env.example
 ├── .gitignore
-├── README.md
-└── pyproject.toml
+├── pyproject.toml
+└── README.md
 ```
 
 ---
 
-# ⚙️ Установка
-
-## 1. Клонирование
+## ⚙️ Installation
 
 ```bash
 git clone <repo>
 cd GirlsFilm
-```
-
-## 2. Установка зависимостей
-
-```bash
 uv sync
-```
-
-или:
-
-```bash
-pip install -r requirements.txt
 ```
 
 ---
 
-# 🔑 Настройка .env
+## 🔑 Environment Setup
 
-Создай `.env`:
+Create a `.env` file:
 
 ```env
 ANTHROPIC_API_KEY=your_claude_key
 TMDB_API_KEY_2=your_tmdb_key
+INSTAGRAM_USER=your_instagram_username
 ```
 
----
-
-# 🎬 TMDB API
-
-Получить API key:
-
-[https://www.themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
-
-Используется:
-
-* search/multi
-* watch/providers
+Get a TMDB API key: https://www.themoviedb.org/settings/api
 
 ---
 
-# 🔐 Instagram Session
+## 🔐 Instagram Session
 
-Instaloader использует persistent session.
-
-## Вариант 1 (рекомендуется)
+The app uses a browser session. Before the first run:
 
 ```bash
 instaloader --load-cookies chrome
 ```
 
-или:
+or Firefox:
 
 ```bash
 instaloader --load-cookies firefox
 ```
 
+The session is saved to `~/.config/instaloader/` and reused automatically on subsequent runs.
+
+> **Note:** Only public Instagram profiles are supported. Terminal login via password is not supported — Instagram does not trust such sessions.
+
 ---
 
-# ▶️ Использование
-
-## Базовый запуск
+## ▶️ Usage
 
 ```bash
-python main.py antonina_zolotova_
+# Basic run
+python main.py --username some_username
+
+# Verbose mode
+python main.py --username some_username -v
+
+# Skip cache (force re-fetch from Instagram and Claude)
+python main.py --username some_username --no-cache
+
+# Show recommendation history
+python main.py --username some_username --history
 ```
 
-## Verbose mode
-
-```bash
-python main.py antonina_zolotova_ -v
-```
-
-## Без кэша
-
-```bash
-python main.py antonina_zolotova_ --no-cache
-```
-
 ---
 
-# 🧠 Что анализирует AI
-
-Claude получает:
-
-* bio
-* hashtags
-* captions
-* followers count
-* post count
-
-И определяет:
-
-* интересы
-* настроение
-* lifestyle
-* подходящий сериал/фильм
-
----
-
-# 📡 Streaming Search
-
-TMDB API используется для:
-
-* поиска сериала/фильма
-* определения platform providers
-* проверки availability по регионам
-
-Поддерживаемые платформы:
-
-* Netflix
-* HBO Max
-* Amazon Prime Video
-
----
-
-# 💾 Кэширование
-
-## Instagram profiles
-
-TTL:
-
-* 24 часа
-
-## Claude responses
-
-TTL:
-
-* 7 дней
-
-Инвалидация:
-
-* profile hash
-* prompt hash
-
----
-
-# 📋 Пример вывода
+## 📋 Example Output
 
 ```text
 💘 Date Night Assistant
 ========================================
+📱 Establishing Instagram session...
+Session valid — logged in as @your_account
+🔍 Scanning profile @some_username...
+🤖 Analysing interests with Claude...
+🔍 Searching 'Physical: 100' on Netflix and HBO...
 
-📱 Сканирую профиль @antonina_zolotova_...
+========================================
+🎬 TONIGHT'S RECOMMENDATION
+========================================
 
-✅ Профиль загружен.
-🤖 Claude проанализировал профиль
+📺 Series : Physical: 100
 
-🎬 РЕКОМЕНДАЦИЯ НА ВЕЧЕР
+🎭 Genre  : Reality Competition
 
-📺 Сериал: Вращение
-(Spinning Out)
+💡 Interests of @some_username:
+   • fitness / gymnastics
+   • stretching / flexibility
+   • beach / travel
+   • medicine / healthcare
 
-🎭 Жанр: спортивная драма
+❤️  Why it fits:
+   This Korean show perfectly combines a passion for sport and athleticism...
 
-📡 Где смотреть:
-✅ Netflix — https://www.netflix.com
+📡 Where to watch:
+   ✅ Netflix — https://www.netflix.com/search?q=Physical+100
 
-🎞️ TMDB:
-https://www.themoviedb.org/tv/83050
+🎞️  TMDB: https://www.themoviedb.org/tv/210905
+========================================
+🌙 Enjoy your evening! 🍷
 ```
 
 ---
 
-# 🛠 Используемые технологии
+## 💾 Caching
 
-* Python 3.12
-* Click
-* Instaloader
-* Anthropic Claude API
-* TMDB API
-* requests
-* python-dotenv
+| Type | TTL | Invalidation |
+|------|-----|--------------|
+| Instagram profile | 24 hours | on TTL expiry |
+| Claude response | 7 days | on profile or prompt change |
 
 ---
 
-# ⚠️ Ограничения
+## ⚠️ Known Limitations
 
-* Работает только с публичными Instagram профилями
-* Instagram может rate-limit scraping
-* Streaming availability зависит от региона
-* Claude может рекомендовать малоизвестные фильмы без provider data
+- Only public Instagram profiles are supported
+- Instagram rate-limiting: a 429 error may occur after frequent requests — wait ~30 minutes before retrying
+- Streaming availability depends on region (priority: DE → US → GB)
+- Instaloader 4.15.1 has an unstable GraphQL endpoint — the code includes a fallback via the iPhone API
 
 ---
 
-# 📌 Примечание
+## 🛠 Tech Stack
 
-Проект создавался как AI-oriented engineering test task с упором на:
-
-* external integrations
-* prompt engineering
-* orchestration
-* caching
-* CLI UX
-* structured AI output
+- Python 3.12
+- Anthropic Claude API (`claude-opus-4-5`)
+- Instaloader + browser-cookie3
+- TMDB API
+- Pydantic + pydantic-settings
+- SQLite
+- argparse
+- uv
