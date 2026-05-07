@@ -1,12 +1,13 @@
 import argparse
 import sys
 
-from app.logger import logger, setup_logger
-from app.instagram import get_profile_data
-from app.claude_client import analyze_profile
-from app.streaming import find_on_streaming
 from app.cache import load_profile_cache, save_profile_cache
+from app.claude_client import analyze_profile
 from app.database import init_db, save_recommendation, get_history
+from app.instagram import get_profile_data
+from app.logger import logger, setup_logger
+from app.session import build_loader
+from app.streaming import find_on_streaming
 
 
 def _parse_args() -> argparse.Namespace:
@@ -14,7 +15,7 @@ def _parse_args() -> argparse.Namespace:
         prog="date-night",
         description="Find the perfect series for a date night based on Instagram profile.",
     )
-    parser.add_argument("--username", help="Instagram username (without @)")
+    parser.add_argument("--username", required=True, help="Instagram username (without @)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument("--no-cache", action="store_true", help="Disable caching")
     parser.add_argument("--history", action="store_true", help="Show recommendation history")
@@ -47,40 +48,45 @@ def run() -> None:
 
     logger.info("\n💘 Date Night Assistant")
     logger.info("=" * 40)
-    logger.info(f"📱 Scanning profile @{username}...")
 
-    profile = None
+    # ── Profile ────────────────────────────────────────────────
+    profile = load_profile_cache(username) if use_cache else None
 
-    if use_cache:
-        profile = load_profile_cache(username)
-        if profile:
-            logger.info("📦 Profile loaded from cache")
-
-    if not profile:
-        profile = get_profile_data(username)
-        if not profile:
-            logger.error("❌ Could not retrieve profile data.")
+    if profile:
+        logger.info(f"📦 Profile @{username} loaded from cache")
+    else:
+        logger.info(f"📱 Establishing Instagram session...")
+        loader = build_loader()
+        if not loader:
+            logger.error("❌ Could not establish Instagram session")
             sys.exit(1)
+
+        logger.info(f"🔍 Scanning profile @{username}...")
+        profile = get_profile_data(loader, username)
+        if not profile:
+            logger.error("❌ Could not retrieve profile data")
+            sys.exit(1)
+
         if use_cache:
             save_profile_cache(username, profile)
 
     if args.verbose:
-        logger.debug(f"\n📊 Profile data:")
         logger.debug(f"  Name     : {profile.full_name}")
         logger.debug(f"  Bio      : {profile.biography}")
         logger.debug(f"  Hashtags : {', '.join(profile.hashtags[:10])}")
 
-    logger.info("✅ Profile loaded. Analysing interests...")
-
+    # ── Claude ─────────────────────────────────────────────────
+    logger.info("🤖 Analysing interests with Claude...")
     recommendation = analyze_profile(username, profile, use_cache=use_cache)
-    logger.info("🤖 Claude analysed the profile")
 
+    # ── Streaming ──────────────────────────────────────────────
     logger.info(f"🔍 Searching '{recommendation.series_title}' on Netflix and HBO...")
     streaming = find_on_streaming(recommendation.series_title, verbose=args.verbose)
 
     providers = [p.name for p in streaming.providers]
     save_recommendation(username, recommendation, providers)
 
+    # ── Output ─────────────────────────────────────────────────
     logger.info(f"\n{'=' * 40}")
     logger.info("🎬 TONIGHT'S RECOMMENDATION")
     logger.info("=" * 40)
@@ -93,15 +99,12 @@ def run() -> None:
     logger.info("\n❤️  Why it fits:")
     logger.info(f"   {recommendation.reason}")
     logger.info("\n📡 Where to watch:")
-
     if streaming.found:
-        for provider in streaming.providers:
-            logger.info(f"   ✅ {provider.name} — {provider.url}")
+        for p in streaming.providers:
+            logger.info(f"   ✅ {p.name} — {p.url}")
     else:
         logger.info("   ⚠️  Not found on Netflix / HBO / Prime")
-
     if streaming.tmdb_url:
         logger.info(f"\n🎞️  TMDB: {streaming.tmdb_url}")
-
     logger.info(f"\n{'=' * 40}")
     logger.info("🌙 Enjoy your evening! 🍷\n")

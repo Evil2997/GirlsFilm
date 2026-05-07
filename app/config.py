@@ -7,6 +7,7 @@ CACHE_DIR: Path = ROOT_DIR / "cache"
 PROFILE_CACHE_DIR: Path = CACHE_DIR / "profiles"
 LLM_CACHE_DIR: Path = CACHE_DIR / "llm"
 DB_PATH: Path = ROOT_DIR / "history.db"
+_SESSION_DIR = Path.home() / ".config" / "instaloader"
 
 PROFILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 LLM_CACHE_DIR.mkdir(parents=True, exist_ok=True)

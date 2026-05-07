@@ -1,8 +1,8 @@
+import urllib.parse
 import requests
 
 from app.config import (
     settings,
-    PROVIDER_MAP,
     PROVIDER_PRIORITY,
     TMDB_SEARCH_URL,
     TMDB_PROVIDERS_URL,
@@ -11,6 +11,21 @@ from app.config import (
 )
 from app.logger import logger
 from app.models import StreamingProvider, StreamingResult
+
+
+def _provider_url(name: str, title: str) -> str:
+    """
+    Build a direct search URL on the streaming platform for the given title.
+    This takes the user straight to the right place instead of the platform homepage.
+    """
+    q = urllib.parse.quote_plus(title)
+    if name == "Netflix":
+        return f"https://www.netflix.com/search?q={q}"
+    if name == "HBO Max":
+        return f"https://play.max.com/search?q={q}"
+    if name == "Amazon Prime Video":
+        return f"https://www.amazon.de/s?k={q}&i=instant-video"
+    return f"https://www.google.com/search?q={urllib.parse.quote_plus(f'{title} {name}')}"
 
 
 def find_on_streaming(title: str, verbose: bool = False) -> StreamingResult:
@@ -61,17 +76,17 @@ def find_on_streaming(title: str, verbose: bool = False) -> StreamingResult:
         if providers_resp.status_code != 200:
             return result
 
-        regions = providers_resp.json().get("results", {})
-        region = next((r for r in PREFERRED_REGIONS if r in regions), None)
+        regions_data = providers_resp.json().get("results", {})
+        region = next((r for r in PREFERRED_REGIONS if r in regions_data), None)
 
         if not region:
             return result
 
-        flatrate = regions[region].get("flatrate", [])
+        flatrate = regions_data[region].get("flatrate", [])
         available = {
             p["provider_name"]
             for p in flatrate
-            if p["provider_name"] in PROVIDER_MAP
+            if p["provider_name"] in {name for name in PROVIDER_PRIORITY}
         }
 
         if verbose:
@@ -80,7 +95,10 @@ def find_on_streaming(title: str, verbose: bool = False) -> StreamingResult:
         for name in PROVIDER_PRIORITY:
             if name in available:
                 result.providers.append(
-                    StreamingProvider(name=name, url=PROVIDER_MAP[name])
+                    StreamingProvider(
+                        name=name,
+                        url=_provider_url(name, matched_title or title),
+                    )
                 )
 
         result.found = bool(result.providers)
